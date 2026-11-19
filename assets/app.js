@@ -142,10 +142,19 @@
 
   function loadViaCsv(src) {
     var url = 'https://docs.google.com/spreadsheets/d/' + src.id + '/export?format=csv&_=' + Date.now();
-    return fetch(url, { cache: 'no-store', mode: 'cors' }).then(function (res) {
+    var ctrl = typeof AbortController === 'function' ? new AbortController() : null;
+    var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, 20000) : null;
+    function done() { if (timer) clearTimeout(timer); }
+    return fetch(url, { cache: 'no-store', mode: 'cors', signal: ctrl ? ctrl.signal : undefined }).then(function (res) {
       if (!res.ok) throw new Error('csv HTTP ' + res.status);
       return res.text();
-    }).then(parseCsv);
+    }).then(function (text) {
+      done();
+      return parseCsv(text);
+    }, function (err) {
+      done();
+      throw err;
+    });
   }
 
   /**
