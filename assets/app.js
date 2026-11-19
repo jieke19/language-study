@@ -230,49 +230,78 @@
       });
       var pool = exact.length ? exact : loose;
       if (!pool.length) return null;
-      var nice = pool.filter(function (v) { return /siri|google|natural|premium|enhanced|neural|ting|mei|samantha|lili|yuna/i.test(v.name || ''); });
-      return nice[0] || pool[0];
+      var nonSiri = pool.filter(function (v) { return !/siri/i.test(v.name || ''); });
+      var candidates = nonSiri.length ? nonSiri : pool;
+      var nice = candidates.filter(function (v) { return /google|natural|premium|enhanced|neural|ting-?ting|mei-?jia|samantha|daniel|karen|lili|yuna/i.test(v.name || ''); });
+      return nice[0] || candidates[0];
     }
 
     function clearActive() {
       if (activeBtn) { activeBtn.classList.remove('is-speaking'); activeBtn = null; }
     }
 
-    function say(text, lang, btn) {
-      if (!synth || !text) return;
-      queue = [];
-      try { if (synth.speaking || synth.pending) synth.cancel(); } catch (e) {}
-      clearActive();
+    function speakUtterance(text, lang, btn, withVoice, onDone) {
       var u = new SpeechSynthesisUtterance(String(text));
       u.lang = lang;
       u.rate = state.rate;
-      var v = pick(lang);
-      if (v) u.voice = v;
-      if (btn) { activeBtn = btn; btn.classList.add('is-speaking'); }
-      u.onend = clearActive;
-      u.onerror = clearActive;
+      if (withVoice) {
+        var v = pick(lang);
+        if (v) u.voice = v;
+      }
+      if (btn) {
+        if (activeBtn && activeBtn !== btn) activeBtn.classList.remove('is-speaking');
+        activeBtn = btn;
+        btn.classList.add('is-speaking');
+      }
+      var retried = false;
+      u.onend = function () { if (onDone) onDone(); else clearActive(); };
+      u.onerror = function () {
+        if (withVoice && !retried) {
+          retried = true;
+          speakUtterance(text, lang, btn, false, onDone);
+          return;
+        }
+        clearActive();
+      };
+      try { if (synth.paused) synth.resume(); } catch (e) {}
       synth.speak(u);
+    }
+
+    function say(text, lang, btn) {
+      if (!synth || !text) return;
+      queue = [];
+      var wasBusy = false;
+      try {
+        wasBusy = !!(synth.speaking || synth.pending);
+        if (wasBusy) synth.cancel();
+      } catch (e) {}
+      clearActive();
+      if (wasBusy) {
+        setTimeout(function () { speakUtterance(text, lang, btn, true, null); }, 60);
+      } else {
+        speakUtterance(text, lang, btn, true, null);
+      }
     }
 
     function sayAll(texts, lang, btn) {
       if (!synth) return;
-      try { if (synth.speaking || synth.pending) synth.cancel(); } catch (e) {}
+      var wasBusy = false;
+      try {
+        wasBusy = !!(synth.speaking || synth.pending);
+        if (wasBusy) synth.cancel();
+      } catch (e) {}
       queue = texts.slice();
-      playNext(lang, btn);
+      if (wasBusy) {
+        setTimeout(function () { playNext(lang, btn); }, 60);
+      } else {
+        playNext(lang, btn);
+      }
     }
 
     function playNext(lang, btn) {
       if (!queue.length) { clearActive(); return; }
       var text = queue.shift();
-      var u = new SpeechSynthesisUtterance(String(text));
-      u.lang = lang;
-      u.rate = state.rate;
-      var v = pick(lang);
-      if (v) u.voice = v;
-      if (btn) { if (activeBtn && activeBtn !== btn) activeBtn.classList.remove('is-speaking'); activeBtn = btn; btn.classList.add('is-speaking'); }
-      u.onend = function () { playNext(lang, btn); };
-      u.onerror = function () { clearActive(); };
-      synth.speak(u);
+      speakUtterance(text, lang, btn, true, function () { playNext(lang, btn); });
     }
 
     return {
