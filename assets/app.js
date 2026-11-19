@@ -100,7 +100,7 @@
       var cb = '__gvizCb_' + Math.random().toString(36).slice(2);
       var script = document.createElement('script');
       var settled = false;
-      var timer = setTimeout(function () { finish(new Error('gviz timeout')); }, 10000);
+      var timer = setTimeout(function () { finish(new Error('gviz timeout')); }, 15000);
 
       function finish(err, resp) {
         if (settled) return;
@@ -148,35 +148,52 @@
     }).then(parseCsv);
   }
 
+  /**
+   * GViz 와 CSV 를 동시에 요청하고 먼저 성공한 쪽을 쓴다.
+   * 둘 다 실패하면 내장 스냅샷으로 떨어진다.
+   */
   function loadSheet(lang) {
     var src = SOURCES[lang];
-    var method = 'live';
-    return loadViaGviz(src)
-      .catch(function (err) {
-        console.warn('[study] GViz 실패 → CSV 시도', lang, err && err.message);
-        method = 'csv';
-        return loadViaCsv(src);
-      })
-      .then(function (rows) {
-        return {
+    return new Promise(function (resolve) {
+      var settled = false;
+      var failures = 0;
+      var lastErr = null;
+
+      function win(rows, method) {
+        if (settled) return;
+        if (!rows || !rows.length) {
+          lose(new Error(method + ' empty'));
+          return;
+        }
+        settled = true;
+        resolve({
           entries: P.parseRows(rows, { lang: lang }),
           source: 'live',
           method: method,
           at: new Date(),
           error: null
-        };
-      })
-      .catch(function (err) {
-        console.warn('[study] 실시간 연결 실패 → 스냅샷', lang, err && err.message);
+        });
+      }
+
+      function lose(err) {
+        failures++;
+        lastErr = err || lastErr;
+        if (settled || failures < 2) return;
+        settled = true;
+        console.warn('[study] 실시간 연결 실패 → 스냅샷', lang, lastErr && lastErr.message);
         var snap = (window.__STUDY_SNAPSHOT__ || {})[lang];
-        return {
+        resolve({
           entries: snap ? P.parseRows(snap.rows, { lang: lang }) : [],
           source: snap ? 'snapshot' : 'none',
           method: 'snapshot',
           at: new Date(),
-          error: err
-        };
-      });
+          error: lastErr
+        });
+      }
+
+      loadViaGviz(src).then(function (rows) { win(rows, 'gviz'); }, lose);
+      loadViaCsv(src).then(function (rows) { win(rows, 'csv'); }, lose);
+    });
   }
 
   /* ------------------------------------------------------------------ TTS */
