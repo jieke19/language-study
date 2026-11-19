@@ -525,20 +525,25 @@
     var btn = $('#syncBtn');
     if (btn) btn.classList.add('is-busy');
 
-    Promise.all([loadSheet('zh'), loadSheet('en')]).then(function (results) {
-      ['zh', 'en'].forEach(function (lang, i) {
-        state.data[lang] = results[i].entries;
-        state.meta[lang] = { source: results[i].source, method: results[i].method, at: results[i].at };
-      });
+    var remaining = 2;
+    function finishOne() {
+      remaining--;
+      if (remaining > 0) return;
       state.loading = false;
       state.lastSync = new Date();
       if (btn) btn.classList.remove('is-busy');
       render();
-    }).catch(function (err) {
-      state.loading = false;
-      if (btn) btn.classList.remove('is-busy');
-      console.error('[study] 동기화 실패', err);
-      render();
+    }
+
+    // 두 언어를 따로 받아, 먼저 온 쪽부터 화면에 보여 준다
+    ['zh', 'en'].forEach(function (lang) {
+      loadSheet(lang).then(function (res) {
+        state.data[lang] = res.entries;
+        state.meta[lang] = { source: res.source, method: res.method, at: res.at };
+        render();
+      }).catch(function (err) {
+        console.error('[study] 동기화 실패', lang, err);
+      }).then(finishOne);
     });
   }
 
