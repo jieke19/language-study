@@ -211,6 +211,8 @@
     var voices = [];
     var activeBtn = null;
     var queue = [];
+    var audio = typeof Audio === 'function' ? new Audio() : null;
+    var playToken = 0;
 
     function refresh() {
       try { voices = (synth && synth.getVoices ? synth.getVoices() : []) || []; } catch (e) { voices = []; }
@@ -240,7 +242,44 @@
       if (activeBtn) { activeBtn.classList.remove('is-speaking'); activeBtn = null; }
     }
 
-    function speakUtterance(text, lang, btn, withVoice, onDone) {
+    function stopAudio() {
+      if (!audio) return;
+      try {
+        audio.onended = null;
+        audio.onerror = null;
+        audio.pause();
+        audio.removeAttribute('src');
+        audio.load();
+      } catch (e) {}
+    }
+
+    function chunkText(text) {
+      var s = String(text || '').trim();
+      if (!s) return [];
+      if (s.length <= 180) return [s];
+      var parts = s.split(/([.!?。！？;；]\s*)/);
+      var out = [];
+      var cur = '';
+      for (var i = 0; i < parts.length; i++) {
+        if ((cur + parts[i]).length > 180 && cur) {
+          out.push(cur.trim());
+          cur = parts[i];
+        } else {
+          cur += parts[i];
+        }
+      }
+      if (cur.trim()) out.push(cur.trim());
+      return out.length ? out : [s.slice(0, 180)];
+    }
+
+    function audioUrl(text, lang) {
+      var tl = /^zh/i.test(lang) ? 'zh-CN' : 'en';
+      return 'https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=' +
+        encodeURIComponent(tl) + '&q=' + encodeURIComponent(text);
+    }
+
+    function speakSynth(text, lang, btn, withVoice, onDone) {
+      if (!synth) { clearActive(); return; }
       var u = new SpeechSynthesisUtterance(String(text));
       u.lang = lang;
       u.rate = state.rate;
@@ -258,61 +297,88 @@
       u.onerror = function () {
         if (withVoice && !retried) {
           retried = true;
-          speakUtterance(text, lang, btn, false, onDone);
+          speakSynth(text, lang, btn, false, onDone);
           return;
         }
         clearActive();
       };
       try { if (synth.paused) synth.resume(); } catch (e) {}
-      synth.speak(u);
+      try { synth.speak(u); } catch (e) { clearActive(); }
+    }
+
+    function playAudio(text, lang, btn, token, onDone) {
+      if (!audio) {
+        speakSynth(text, lang, btn, true, onDone);
+        return;
+      }
+      if (btn) {
+        if (activeBtn && activeBtn !== btn) activeBtn.classList.remove('is-speaking');
+        activeBtn = btn;
+        btn.classList.add('is-speaking');
+      }
+      audio.onended = function () {
+        if (token !== playToken) return;
+        if (onDone) onDone(); else clearActive();
+      };
+      audio.onerror = function () {
+        if (token !== playToken) return;
+        speakSynth(text, lang, btn, true, onDone);
+      };
+      audio.src = audioUrl(text, lang);
+      audio.playbackRate = state.rate;
+      var p = audio.play();
+      if (p && typeof p.catch === 'function') {
+        p.catch(function () {
+          if (token !== playToken) return;
+          speakSynth(text, lang, btn, true, onDone);
+        });
+      }
     }
 
     function say(text, lang, btn) {
-      if (!synth || !text) return;
-      queue = [];
-      var wasBusy = false;
-      try {
-        wasBusy = !!(synth.speaking || synth.pending);
-        if (wasBusy) synth.cancel();
-      } catch (e) {}
+      if (!text) return;
+      playToken += 1;
+      var token = playToken;
+      queue = chunkText(text);
+      stopAudio();
+      try { if (synth && (synth.speaking || synth.pending)) synth.cancel(); } catch (e) {}
       clearActive();
-      if (wasBusy) {
-        setTimeout(function () { speakUtterance(text, lang, btn, true, null); }, 60);
-      } else {
-        speakUtterance(text, lang, btn, true, null);
-      }
+      playNext(lang, btn, token);
     }
 
     function sayAll(texts, lang, btn) {
-      if (!synth) return;
-      var wasBusy = false;
-      try {
-        wasBusy = !!(synth.speaking || synth.pending);
-        if (wasBusy) synth.cancel();
-      } catch (e) {}
-      queue = texts.slice();
-      if (wasBusy) {
-        setTimeout(function () { playNext(lang, btn); }, 60);
-      } else {
-        playNext(lang, btn);
+      if (!texts || !texts.length) return;
+      playToken += 1;
+      var token = playToken;
+      queue = [];
+      for (var i = 0; i < texts.length; i++) {
+        var chunks = chunkText(texts[i]);
+        for (var j = 0; j < chunks.length; j++) queue.push(chunks[j]);
       }
+      stopAudio();
+      try { if (synth && (synth.speaking || synth.pending)) synth.cancel(); } catch (e) {}
+      clearActive();
+      playNext(lang, btn, token);
     }
 
-    function playNext(lang, btn) {
+    function playNext(lang, btn, token) {
+      if (token !== playToken) return;
       if (!queue.length) { clearActive(); return; }
       var text = queue.shift();
-      speakUtterance(text, lang, btn, true, function () { playNext(lang, btn); });
+      playAudio(text, lang, btn, token, function () { playNext(lang, btn, token); });
     }
 
     return {
       say: say,
       sayAll: sayAll,
       stop: function () {
+        playToken += 1;
         queue = [];
+        stopAudio();
         try { if (synth) synth.cancel(); } catch (e) {}
         clearActive();
       },
-      supported: !!synth
+      supported: !!(audio || synth)
     };
   })();
 
