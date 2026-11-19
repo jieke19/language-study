@@ -143,7 +143,7 @@
   function loadViaCsv(src) {
     var url = 'https://docs.google.com/spreadsheets/d/' + src.id + '/export?format=csv&_=' + Date.now();
     var ctrl = typeof AbortController === 'function' ? new AbortController() : null;
-    var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, 20000) : null;
+    var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, 30000) : null;
     function done() { if (timer) clearTimeout(timer); }
     return fetch(url, { cache: 'no-store', mode: 'cors', signal: ctrl ? ctrl.signal : undefined }).then(function (res) {
       if (!res.ok) throw new Error('csv HTTP ' + res.status);
