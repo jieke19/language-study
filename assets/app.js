@@ -100,7 +100,7 @@
       var cb = '__gvizCb_' + Math.random().toString(36).slice(2);
       var script = document.createElement('script');
       var settled = false;
-      var timer = setTimeout(function () { finish(new Error('gviz timeout')); }, 15000);
+      var timer = setTimeout(function () { finish(new Error('gviz timeout')); }, 20000);
 
       function finish(err, resp) {
         if (settled) return;
