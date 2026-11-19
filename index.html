@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0f1c">
+<meta name="description" content="재익 님의 영어·중국어 학습 일지 — Google Sheets 실시간 연동 복습 웹앱">
+<title>언어 학습 일지 · 중국어 HSK4+ / 영어 IELTS·TOEFL</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📚</text></svg>">
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<div class="aurora" aria-hidden="true"><span></span><span></span><span></span></div>
+
+<header class="hero">
+  <div class="hero-top">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">📚</div>
+      <div class="brand-text">
+        <p class="eyebrow">LANGUAGE STUDY LOG</p>
+        <h1>언어 학습 일지</h1>
+      </div>
+    </div>
+    <div class="hero-actions">
+      <button id="themeBtn" class="icon-btn" type="button" title="테마 바꾸기" aria-label="테마 바꾸기">🌙</button>
+      <a id="sheetLink" class="icon-btn" href="#" target="_blank" rel="noopener" title="원본 시트 열기" aria-label="원본 시트 열기">↗</a>
+    </div>
+  </div>
+
+  <div class="goals">
+    <div class="goal goal-zh">
+      <span class="flag" aria-hidden="true">🇨🇳</span>
+      <div>
+        <p>중국어 회화</p>
+        <strong>HSK 4급+</strong>
+      </div>
+    </div>
+    <div class="goal goal-en">
+      <span class="flag" aria-hidden="true">🇺🇸</span>
+      <div>
+        <p>영어 회화</p>
+        <strong>IELTS·TOEFL 만점 · 원어민처럼</strong>
+      </div>
+    </div>
+  </div>
+
+  <div class="stats" id="stats" aria-live="polite"></div>
+</header>
+
+<div class="toolbar-wrap">
+  <div class="toolbar">
+    <div class="tabs" role="tablist" aria-label="언어 선택">
+      <button class="tab is-active" role="tab" data-lang="zh" aria-selected="true" type="button">
+        <span aria-hidden="true">🇨🇳</span> 중국어
+      </button>
+      <button class="tab" role="tab" data-lang="en" aria-selected="false" type="button">
+        <span aria-hidden="true">🇺🇸</span> 영어
+      </button>
+    </div>
+
+    <label class="search">
+      <span aria-hidden="true">🔍</span>
+      <input id="search" type="search" placeholder="문장·단어·교정 검색" autocomplete="off" inputmode="search">
+    </label>
+
+    <div class="tool-buttons">
+      <button id="reviewToggle" class="chip-btn" type="button" aria-pressed="false">🙈 복습 모드</button>
+      <button id="flashBtn" class="chip-btn" type="button">🎴 복습 카드</button>
+      <button id="roadmapBtn" class="chip-btn" type="button">🗺️ 4주 로드맵</button>
+      <button id="syncBtn" class="chip-btn primary" type="button">⟳ 동기화</button>
+    </div>
+  </div>
+
+  <div class="sync-bar">
+    <p id="syncMeta" class="sync-meta"><span class="dot"></span> 시트에 연결하는 중…</p>
+    <label class="rate">
+      <span>발음 속도</span>
+      <input id="rate" type="range" min="0.5" max="1.2" step="0.1" value="0.85" aria-label="발음 속도">
+    </label>
+  </div>
+</div>
+
+<main id="content" class="content" aria-live="polite"></main>
+
+<footer class="foot">
+  <p>Google Sheets <strong>중국어 학습 일지</strong> · <strong>영어 학습 일지</strong> 와 실시간 연동 · GitHub Pages</p>
+  <p class="foot-sub">문장이나 단어를 누르면 원어민 발음으로 읽어 줍니다 (기기 음성 사용)</p>
+</footer>
+
+<!-- 로드맵 모달 -->
+<div class="modal" id="roadmapModal" hidden>
+  <div class="modal-backdrop" data-close></div>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="rmTitle">
+    <header class="modal-head">
+      <div>
+        <p class="eyebrow">HSK 4급 기억 되살리기</p>
+        <h2 id="rmTitle">중국어 회화 복습 4주 로드맵</h2>
+      </div>
+      <button class="icon-btn" data-close type="button" aria-label="닫기">✕</button>
+    </header>
+    <div class="modal-body">
+      <p class="lead">4주 뒤, 여행·일상 상황에서 <strong>15문장 이상 막힘없이 말하기</strong>가 목표입니다.</p>
+
+      <h3>진행 방식 <span>1회 10~15분</span></h3>
+      <ol class="steps">
+        <li><b>복습 3분</b> — 지난 시간 문장 3개를 중국어로 말하기 (한국어 힌트만 보고)</li>
+        <li><b>패턴 5분</b> — 오늘의 패턴 5개: 한국어 → 중국어로 바로 말하기</li>
+        <li><b>상황 대화 5분</b> — 정해진 상황에서 역할 대화</li>
+        <li><b>정리 2분</b> — 틀린 것 중 3개만 골라 다시 말하기. 발음은 성조 위주로 교정</li>
+      </ol>
+
+      <h3>4주 로드맵</h3>
+      <div class="table-wrap">
+        <table class="roadmap">
+          <thead><tr><th>주</th><th>주제</th><th>핵심 패턴 예시</th></tr></thead>
+          <tbody>
+            <tr><td><span class="wk">1주</span></td><td>자기소개·일상·시간</td><td><code>我平时… / 大概…左右 / 因为…所以…</code></td></tr>
+            <tr><td><span class="wk">2주</span></td><td>식당·카페·쇼핑</td><td><code>我要一个… / 可以…吗？ / 太…了</code></td></tr>
+            <tr><td><span class="wk">3주</span></td><td>업무·회의·전화</td><td><code>我想确认一下… / 什么时候方便？ / 麻烦您…</code></td></tr>
+            <tr><td><span class="wk">4주</span></td><td>여행·호텔·길찾기</td><td><code>怎么走？ / 我想预订… / 能不能帮我…</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>원칙</h3>
+      <ul class="bullets">
+        <li>병음은 처음 2주만 같이 표기, 3주차부터는 한자+소리만</li>
+        <li>틀려도 끝까지 말하게 하고, 고칠 것은 세션 끝에 몰아서</li>
+        <li>모르는 단어는 세션 중에 알려 주되, 대화는 끊지 않기</li>
+      </ul>
+
+      <h3>어휘</h3>
+      <p>HSK 4급 회화 빈출 300개를 4주에 나눠 <strong>하루 15개</strong>씩. 매일 세션 끝에 그날 단어 3개로 짧은 문장 만들기(말로만).</p>
+
+      <h3>조정 가능한 것</h3>
+      <ul class="bullets">
+        <li>횟수(주 3회/5회), 시간대, 세션 길이</li>
+        <li>한자 읽기 비중을 늘릴지, 말하기만 할지</li>
+        <li>HSK 시험 대비로 돌릴지, 여행 회화로 돌릴지</li>
+      </ul>
+
+      <p class="table-note">영어는 같은 방식으로 IELTS·TOEFL 만점, 원어민 수준의 즉답 훈련을 목표로 삼습니다.</p>
+    </div>
+  </div>
+</div>
+
+<!-- 복습 카드 모달 -->
+<div class="modal" id="flashModal" hidden>
+  <div class="modal-backdrop" data-close></div>
+  <div class="modal-card flash-card" role="dialog" aria-modal="true" aria-labelledby="flashTitle">
+    <header class="modal-head">
+      <div>
+        <p class="eyebrow" id="flashKicker">복습 카드</p>
+        <h2 id="flashTitle">눌러서 정답 확인</h2>
+      </div>
+      <button class="icon-btn" data-close type="button" aria-label="닫기">✕</button>
+    </header>
+    <div class="modal-body">
+      <div class="flash-progress"><span id="flashCount">1 / 1</span><div class="bar"><i id="flashBar"></i></div></div>
+      <div class="flash-stage" id="flashStage" role="button" tabindex="0" aria-label="카드를 눌러 정답 보기">
+        <p class="flash-kind" id="flashKind">교정</p>
+        <p class="flash-q" id="flashQ"></p>
+        <p class="flash-a" id="flashA"></p>
+        <span class="flash-hint" id="flashHint">눌러서 정답 보기</span>
+      </div>
+      <div class="flash-controls">
+        <button id="flashPrev" class="chip-btn" type="button">← 이전</button>
+        <button id="flashSpeak" class="chip-btn" type="button">🔊 발음</button>
+        <button id="flashNext" class="chip-btn primary" type="button">다음 →</button>
+      </div>
+      <p class="flash-tip">Space 정답 보기 · ← → 이동 · Esc 닫기</p>
+    </div>
+  </div>
+</div>
+
+<script src="assets/parse.js"></script>
+<script src="assets/snapshot.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>
